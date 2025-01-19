@@ -10,6 +10,8 @@ import type { Pushable } from 'it-pushable'
 export interface PeerStreamsInit {
   id: PeerId
   protocol: string
+  maxLengthLength?: number; 
+  maxDataLength?: number;
 }
 
 export interface PeerStreamsComponents {
@@ -44,6 +46,14 @@ export class PeerStreams extends TypedEventEmitter<PeerStreamEvents> {
   private readonly _inboundAbortController: AbortController
   private closed: boolean
   private readonly log: Logger
+  /**
+   * Maximum length of the prefix for decoding messages
+   */
+  private readonly maxLengthLength: number;
+   /**
+    * Maximum size of messages that can be decoded
+    */
+  private readonly maxDataLength: number;
 
   constructor (components: PeerStreamsComponents, init: PeerStreamsInit) {
     super()
@@ -54,6 +64,9 @@ export class PeerStreams extends TypedEventEmitter<PeerStreamEvents> {
 
     this._inboundAbortController = new AbortController()
     this.closed = false
+
+    this.maxLengthLength = init.maxLengthLength ?? 8;
+    this.maxDataLength = init.maxDataLength ??  1024 * 1024 * 4;
   }
 
   /**
@@ -102,7 +115,12 @@ export class PeerStreams extends TypedEventEmitter<PeerStreamEvents> {
     this._rawInboundStream = stream
     this.inboundStream = pipe(
       this._rawInboundStream,
-      (source) => lp.decode(source)
+      (source) => lp.decode(source,
+        {
+          maxLengthLength: this.maxLengthLength,
+          maxDataLength: this.maxDataLength,
+        }
+      )
     )
 
     this.dispatchEvent(new CustomEvent('stream:inbound'))
